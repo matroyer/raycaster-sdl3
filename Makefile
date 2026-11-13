@@ -21,6 +21,8 @@ LDLIBS	=	-lSDL3 -lm
 
 all		:	$(NAME)
 
+$(OBJ)		:	./hds/raycaster.h
+
 $(NAME)	:	$(OBJ)
 			$(CC) -o $(NAME) $(OBJ) $(LDLIBS)
 

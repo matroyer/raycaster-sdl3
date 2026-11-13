@@ -28,6 +28,8 @@ extern int worldMap[mapWidth][mapHeight];
 #define MV_SPEED        0.199
 #define ROT_SPEED       0.1745
 #define AMB_LIGHT       7
+#define MIN_WALL_DIST   0.0001
+#define PLAYER_MARGIN   0.2
 
 // Colors
 #define WHITE           0xFFFFFF

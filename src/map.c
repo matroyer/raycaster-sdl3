@@ -1,3 +1,7 @@
+/*
+** map.c
+*/
+
 #include "raycaster.h"
 
 int worldMap[mapWidth][mapHeight]=

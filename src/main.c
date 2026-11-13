@@ -1,3 +1,7 @@
+/*
+** main.c
+*/
+
 #include "raycaster.h"
 
 int           init(t_sdl *sdl, t_raycaster *rc)
@@ -20,7 +24,18 @@ int           init(t_sdl *sdl, t_raycaster *rc)
     fprintf(stderr,"Window creation failed (%s)\n",SDL_GetError());
     return (-1);
   }
+  if (!SDL_SetRenderVSync(sdl->renderer, 1))
+    fprintf(stderr,"VSync unavailable (%s)\n",SDL_GetError());
   return (0);
+}
+
+void          cleanup(t_sdl *sdl)
+{
+  if (sdl->renderer)
+    SDL_DestroyRenderer(sdl->renderer);
+  if (sdl->window)
+    SDL_DestroyWindow(sdl->window);
+  SDL_Quit();
 }
 
 void          initial_calc(t_raycaster *rc, int x)
@@ -32,8 +47,8 @@ void          initial_calc(t_raycaster *rc, int x)
   rc->ray_dir_y = rc->player_dir_y + rc->player_plane_y * camera_x;
   rc->map_x = (int)(rc->player_pos_x);
   rc->map_y = (int)(rc->player_pos_y);
-  rc->delta_dist_x = sqrt(1 + pow(rc->ray_dir_y, 2) / pow(rc->ray_dir_x, 2));
-  rc->delta_dist_y = sqrt(1 + pow(rc->ray_dir_x, 2) / pow(rc->ray_dir_y, 2));
+  rc->delta_dist_x = (rc->ray_dir_x == 0) ? 1e30 : fabs(1 / rc->ray_dir_x);
+  rc->delta_dist_y = (rc->ray_dir_y == 0) ? 1e30 : fabs(1 / rc->ray_dir_y);
   if (rc->ray_dir_x < 0)
   {
     rc->step_x = -1;
@@ -85,9 +100,11 @@ void          calc_wall_height(t_raycaster *rc)
   int         line_height;
 
   if (rc->side == 0)
-    rc->perp_wall_dist = (rc->map_x - rc->player_pos_x + (1 - rc->step_x) / 2) / rc->ray_dir_x;
+    rc->perp_wall_dist = rc->side_dist_x - rc->delta_dist_x;
   else
-    rc->perp_wall_dist = (rc->map_y - rc->player_pos_y + (1 - rc->step_y) / 2) / rc->ray_dir_y;
+    rc->perp_wall_dist = rc->side_dist_y - rc->delta_dist_y;
+  if (rc->perp_wall_dist < MIN_WALL_DIST)
+    rc->perp_wall_dist = MIN_WALL_DIST;
   line_height = (int)(WIN_Y / rc->perp_wall_dist);
   rc->draw_start = -line_height / 2 + WIN_Y / 2;
   if (rc->draw_start < 0)
@@ -100,18 +117,16 @@ void          calc_wall_height(t_raycaster *rc)
 void          draw_vert_line(t_sdl *sdl, t_raycaster *rc, int x)
 {
   SDL_Color   color;
-  
-  color = apply_night_effect(select_wall_color(rc->map_x, rc->map_y), rc->perp_wall_dist);
 
+  color = apply_night_effect(select_wall_color(rc->map_x, rc->map_y), rc->perp_wall_dist);
   if (rc->side == 1)
   {
     color.r /= 2;
     color.g /= 2;
     color.b /= 2;
   }
-  SDL_SetRenderDrawColor(sdl->renderer, color.r, color.g, color.b, SDL_ALPHA_OPAQUE);
+  SDL_SetRenderDrawColor(sdl->renderer, color.r, color.g, color.b, color.a);
   SDL_RenderLine(sdl->renderer, (float)x, (float)rc->draw_start, (float)x, (float)rc->draw_end);
-
 }
 
 void          render_frame(t_sdl *sdl)
@@ -121,11 +136,39 @@ void          render_frame(t_sdl *sdl)
   SDL_RenderClear(sdl->renderer);
 }
 
+void          try_move(t_raycaster *rc, double dx, double dy)
+{
+  double      margin_x;
+  double      margin_y;
+
+  margin_x = (dx > 0) ? PLAYER_MARGIN : -PLAYER_MARGIN;
+  margin_y = (dy > 0) ? PLAYER_MARGIN : -PLAYER_MARGIN;
+  if (worldMap[(int)(rc->player_pos_x + dx + margin_x)][(int)(rc->player_pos_y)] == 0)
+    rc->player_pos_x += dx;
+  if (worldMap[(int)(rc->player_pos_x)][(int)(rc->player_pos_y + dy + margin_y)] == 0)
+    rc->player_pos_y += dy;
+}
+
+void          rotate(t_raycaster *rc, double angle)
+{
+  double      c;
+  double      s;
+  double      old_dir_x;
+  double      old_plane_x;
+
+  c = cos(angle);
+  s = sin(angle);
+  old_dir_x = rc->player_dir_x;
+  rc->player_dir_x = rc->player_dir_x * c - rc->player_dir_y * s;
+  rc->player_dir_y = old_dir_x * s + rc->player_dir_y * c;
+  old_plane_x = rc->player_plane_x;
+  rc->player_plane_x = rc->player_plane_x * c - rc->player_plane_y * s;
+  rc->player_plane_y = old_plane_x * s + rc->player_plane_y * c;
+}
+
 int           handle_events(t_raycaster *rc)
 {
   SDL_Event   event;
-  double      oldDirX;
-  double      oldPlaneX;
 
   while (SDL_PollEvent(&event))
   {
@@ -134,33 +177,13 @@ int           handle_events(t_raycaster *rc)
     if (event.type == SDL_EVENT_KEY_DOWN)
     {
       if (event.key.key == SDLK_UP)
-      {
-        if(worldMap[(int)(rc->player_pos_x + rc->player_dir_x * MV_SPEED)][(int)(rc->player_pos_y)] == 0) rc->player_pos_x += rc->player_dir_x * MV_SPEED;
-        if(worldMap[(int)(rc->player_pos_x)][(int)(rc->player_pos_y + rc->player_dir_y * MV_SPEED)] == 0) rc->player_pos_y += rc->player_dir_y * MV_SPEED;
-      }
-      if (event.key.key == SDLK_DOWN)
-      {
-        if(worldMap[(int)(rc->player_pos_x - rc->player_dir_x * MV_SPEED)][(int)(rc->player_pos_y)] == 0) rc->player_pos_x -= rc->player_dir_x * MV_SPEED;
-        if(worldMap[(int)(rc->player_pos_x)][(int)(rc->player_pos_y - rc->player_dir_y * MV_SPEED)] == 0) rc->player_pos_y -= rc->player_dir_y * MV_SPEED;
-      }
-      if (event.key.key == SDLK_RIGHT)
-      {
-        oldDirX = rc->player_dir_x;
-        rc->player_dir_x = rc->player_dir_x * cos(-ROT_SPEED) - rc->player_dir_y * sin(-ROT_SPEED);
-        rc->player_dir_y = oldDirX * sin(-ROT_SPEED) + rc->player_dir_y * cos(-ROT_SPEED);
-        oldPlaneX = rc->player_plane_x;
-        rc->player_plane_x = rc->player_plane_x * cos(-ROT_SPEED) - rc->player_plane_y * sin(-ROT_SPEED);
-        rc->player_plane_y = oldPlaneX * sin(-ROT_SPEED) + rc->player_plane_y * cos(-ROT_SPEED);
-      }
-      if (event.key.key == SDLK_LEFT)
-      {
-        oldDirX = rc->player_dir_x;
-        rc->player_dir_x = rc->player_dir_x * cos(ROT_SPEED) - rc->player_dir_y * sin(ROT_SPEED);
-        rc->player_dir_y = oldDirX * sin(ROT_SPEED) + rc->player_dir_y * cos(ROT_SPEED);
-        oldPlaneX = rc->player_plane_x;
-        rc->player_plane_x = rc->player_plane_x * cos(ROT_SPEED) - rc->player_plane_y * sin(ROT_SPEED);
-        rc->player_plane_y = oldPlaneX * sin(ROT_SPEED) + rc->player_plane_y * cos(ROT_SPEED);
-      }
+        try_move(rc, rc->player_dir_x * MV_SPEED, rc->player_dir_y * MV_SPEED);
+      else if (event.key.key == SDLK_DOWN)
+        try_move(rc, -rc->player_dir_x * MV_SPEED, -rc->player_dir_y * MV_SPEED);
+      else if (event.key.key == SDLK_RIGHT)
+        rotate(rc, -ROT_SPEED);
+      else if (event.key.key == SDLK_LEFT)
+        rotate(rc, ROT_SPEED);
     }
   }
   return (0);
@@ -186,18 +209,17 @@ void          raycaster(t_sdl *sdl, t_raycaster *rc)
   }
 }
 
-int           main()
+int           main(void)
 {
   t_sdl       sdl;
   t_raycaster rc;
 
   if (init(&sdl, &rc) != 0)
-    return (-1);
+  {
+    cleanup(&sdl);
+    return (1);
+  }
   raycaster(&sdl, &rc);
-  if (sdl.renderer)
-    SDL_DestroyRenderer(sdl.renderer);
-  if (sdl.window)
-    SDL_DestroyWindow(sdl.window);
-  SDL_Quit();
+  cleanup(&sdl);
   return (0);
 }

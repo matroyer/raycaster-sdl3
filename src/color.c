@@ -1,3 +1,7 @@
+/*
+** color.c
+*/
+
 #include "raycaster.h"
 
 SDL_Color     convert_color(int hexa_value)
@@ -7,7 +11,8 @@ SDL_Color     convert_color(int hexa_value)
   color.r = ((hexa_value >> 16) & 0xFF);
   color.g = ((hexa_value >> 8) & 0xFF);
   color.b = ((hexa_value) & 0xFF);
-  return (color); 
+  color.a = SDL_ALPHA_OPAQUE;
+  return (color);
 }
 
 SDL_Color     select_wall_color(int map_x, int map_y)
