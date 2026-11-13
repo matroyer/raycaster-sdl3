@@ -10,7 +10,7 @@ int           init(t_sdl *sdl, t_raycaster *rc)
   sdl->renderer = NULL;
   sdl->screen = NULL;
   sdl->buffer = NULL;
-  for (int i = 0; i <= NB_WALL_TEX; i++)
+  for (int i = 0; i < NB_TEX; i++)
     sdl->textures[i] = NULL;
   rc->player_pos_x = INIT_P_POS_X;
   rc->player_pos_y = INIT_P_POS_Y;
@@ -176,12 +176,50 @@ void          draw_vert_line(t_sdl *sdl, t_raycaster *rc, int x)
   }
 }
 
+/*
+** Floor casting, one horizontal scanline at a time. Each floor row y is
+** mirrored by the ceiling row WIN_Y - y - 1, which is at the same distance.
+** Rows are sampled at the pixel center (+ 0.5) so the horizon never divides
+** by zero and every row of the screen gets filled.
+*/
+void          draw_floor_ceiling(t_sdl *sdl, t_raycaster *rc)
+{
+  double      ray_x0;
+  double      ray_y0;
+  double      row_dist;
+  double      floor_x;
+  double      floor_y;
+  double      step_x;
+  double      step_y;
+  double      shade;
+  int         tex_off;
+
+  ray_x0 = rc->player_dir_x - rc->player_plane_x;
+  ray_y0 = rc->player_dir_y - rc->player_plane_y;
+  for (int y = WIN_Y / 2; y < WIN_Y; y++)
+  {
+    row_dist = (0.5 * WIN_Y) / (y - WIN_Y / 2 + 0.5);
+    step_x = row_dist * 2 * rc->player_plane_x / WIN_X;
+    step_y = row_dist * 2 * rc->player_plane_y / WIN_X;
+    floor_x = rc->player_pos_x + row_dist * ray_x0;
+    floor_y = rc->player_pos_y + row_dist * ray_y0;
+    shade = night_factor(row_dist);
+    for (int x = 0; x < WIN_X; x++)
+    {
+      tex_off = ((int)(TEX_H * (floor_y - floor(floor_y))) & (TEX_H - 1)) * TEX_W + ((int)(TEX_W * (floor_x - floor(floor_x))) & (TEX_W - 1));
+      floor_x += step_x;
+      floor_y += step_y;
+      sdl->buffer[y * WIN_X + x] = shade_pixel(sdl->textures[FLOOR_TEX][tex_off], shade);
+      sdl->buffer[(WIN_Y - y - 1) * WIN_X + x] = shade_pixel(sdl->textures[CEILING_TEX][tex_off], shade);
+    }
+  }
+}
+
 void          render_frame(t_sdl *sdl)
 {
   SDL_UpdateTexture(sdl->screen, NULL, sdl->buffer, WIN_X * sizeof(Uint32));
   SDL_RenderTexture(sdl->renderer, sdl->screen, NULL, NULL);
   SDL_RenderPresent(sdl->renderer);
-  SDL_memset(sdl->buffer, 0, WIN_X * WIN_Y * sizeof(Uint32));
 }
 
 void          try_move(t_raycaster *rc, double dx, double dy)
@@ -244,6 +282,7 @@ void          raycaster(t_sdl *sdl, t_raycaster *rc)
   done = false;
   while(!done)
   {
+    draw_floor_ceiling(sdl, rc);
     for(int x = 0; x < WIN_X; x++)
     {
       initial_calc(rc, x);

@@ -31,10 +31,13 @@ extern int worldMap[mapWidth][mapHeight];
 #define MIN_WALL_DIST   0.0001
 #define PLAYER_MARGIN   0.2
 
-// Textures (one per nonzero map value, see texture.c)
+// Textures (one per nonzero map value, plus floor and ceiling, see texture.c)
 #define TEX_W           64
 #define TEX_H           64
 #define NB_WALL_TEX     5
+#define FLOOR_TEX       (NB_WALL_TEX + 1)
+#define CEILING_TEX     (NB_WALL_TEX + 2)
+#define NB_TEX          (NB_WALL_TEX + 3)
 #define PIXEL_FORMAT    SDL_PIXELFORMAT_XRGB8888
 
 // Structures
@@ -44,7 +47,7 @@ typedef struct      s_sdl
   SDL_Renderer    *renderer;
   SDL_Texture     *screen;
   Uint32          *buffer;
-  Uint32          *textures[NB_WALL_TEX + 1];
+  Uint32          *textures[NB_TEX];
 } t_sdl;
 
 typedef struct      s_raycaster

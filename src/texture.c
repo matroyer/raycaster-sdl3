@@ -7,15 +7,18 @@
 /*
 ** Texture used for each map value: index N is drawn for walls equal to N.
 ** Index 0 is empty space and has no texture.
+** FLOOR_TEX and CEILING_TEX hold the floor and the ceiling.
 */
-static const char *g_texture_files[NB_WALL_TEX + 1] =
+static const char *g_texture_files[NB_TEX] =
 {
-  NULL,
-  "pics/eagle.png",
-  "pics/redbrick.png",
-  "pics/purplestone.png",
-  "pics/greystone.png",
-  "pics/bluestone.png"
+  [0] = NULL,
+  [1] = "pics/eagle.png",
+  [2] = "pics/redbrick.png",
+  [3] = "pics/purplestone.png",
+  [4] = "pics/colorstone.png",
+  [5] = "pics/bluestone.png",
+  [FLOOR_TEX] = "pics/greystone.png",
+  [CEILING_TEX] = "pics/wood.png"
 };
 
 static Uint32 *load_texture(const char *base_path, const char *file)
@@ -73,8 +76,13 @@ int           load_textures(t_sdl *sdl)
   base_path = SDL_GetBasePath();
   if (!base_path)
     base_path = "";
-  for (int i = 1; i <= NB_WALL_TEX; i++)
+  for (int i = 1; i < NB_TEX; i++)
   {
+    if (!g_texture_files[i])
+    {
+      fprintf(stderr, "Texture %d has no file\n", i);
+      return (-1);
+    }
     sdl->textures[i] = load_texture(base_path, g_texture_files[i]);
     if (!sdl->textures[i])
       return (-1);
@@ -84,7 +92,7 @@ int           load_textures(t_sdl *sdl)
 
 void          free_textures(t_sdl *sdl)
 {
-  for (int i = 0; i <= NB_WALL_TEX; i++)
+  for (int i = 0; i < NB_TEX; i++)
   {
     SDL_free(sdl->textures[i]);
     sdl->textures[i] = NULL;
