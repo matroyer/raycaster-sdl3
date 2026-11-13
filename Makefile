@@ -34,10 +34,9 @@ fclean	:	clean
 
 re		:	fclean all
 
-debug	:	CFLAGS	=	-g -O1 -W -Wall -Wextra -Werror -I./hds/	\
-				-fsanitize=address -fno-omit-frame-pointer
+debug	:	CFLAGS	+=	-g -O1 -fsanitize=address -fno-omit-frame-pointer
 debug	:	LDFLAGS	+=	-fsanitize=address
 debug	:	fclean
-			$(MAKE) CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)" $(NAME)
+			$(CC) $(CFLAGS) $(LDFLAGS) -o $(NAME) $(SRC) $(LDLIBS)
 
 .PHONY	:	all clean fclean re debug
