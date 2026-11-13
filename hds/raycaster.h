@@ -31,18 +31,20 @@ extern int worldMap[mapWidth][mapHeight];
 #define MIN_WALL_DIST   0.0001
 #define PLAYER_MARGIN   0.2
 
-// Colors
-#define WHITE           0xFFFFFF
-#define RED             0xFF0000
-#define GREEN           0x00FF00
-#define BLUE            0x0000FF
-#define BLACK           0x000000
+// Textures (one per nonzero map value, see texture.c)
+#define TEX_W           64
+#define TEX_H           64
+#define NB_WALL_TEX     5
+#define PIXEL_FORMAT    SDL_PIXELFORMAT_XRGB8888
 
 // Structures
 typedef struct      s_sdl
 {
   SDL_Window      *window;
   SDL_Renderer    *renderer;
+  SDL_Texture     *screen;
+  Uint32          *buffer;
+  Uint32          *textures[NB_WALL_TEX + 1];
 } t_sdl;
 
 typedef struct      s_raycaster
@@ -64,14 +66,16 @@ typedef struct      s_raycaster
   int             step_x;
   int             step_y;
   int             side;
+  int             line_height;
   int             draw_start;
   int             draw_end;
   double          perp_wall_dist;
 } t_raycaster;
 
 // Proto
-SDL_Color convert_color(int hexa_value);
-SDL_Color select_wall_color(int map_x, int map_y);
-SDL_Color apply_night_effect(SDL_Color color, double distance);
+double    night_factor(double distance);
+Uint32    shade_pixel(Uint32 pixel, double factor);
+int       load_textures(t_sdl *sdl);
+void      free_textures(t_sdl *sdl);
 
 #endif /* !RAYCASTER_H_ */

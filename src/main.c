@@ -8,6 +8,10 @@ int           init(t_sdl *sdl, t_raycaster *rc)
 {
   sdl->window = NULL;
   sdl->renderer = NULL;
+  sdl->screen = NULL;
+  sdl->buffer = NULL;
+  for (int i = 0; i <= NB_WALL_TEX; i++)
+    sdl->textures[i] = NULL;
   rc->player_pos_x = INIT_P_POS_X;
   rc->player_pos_y = INIT_P_POS_Y;
   rc->player_dir_x = INIT_P_DIR_X;
@@ -26,11 +30,30 @@ int           init(t_sdl *sdl, t_raycaster *rc)
   }
   if (!SDL_SetRenderVSync(sdl->renderer, 1))
     fprintf(stderr,"VSync unavailable (%s)\n",SDL_GetError());
+  sdl->screen = SDL_CreateTexture(sdl->renderer, PIXEL_FORMAT,
+                                  SDL_TEXTUREACCESS_STREAMING, WIN_X, WIN_Y);
+  if (!sdl->screen)
+  {
+    fprintf(stderr,"Screen texture creation failed (%s)\n",SDL_GetError());
+    return (-1);
+  }
+  sdl->buffer = SDL_calloc(WIN_X * WIN_Y, sizeof(Uint32));
+  if (!sdl->buffer)
+  {
+    fprintf(stderr,"Screen buffer allocation failed\n");
+    return (-1);
+  }
+  if (load_textures(sdl) != 0)
+    return (-1);
   return (0);
 }
 
 void          cleanup(t_sdl *sdl)
 {
+  free_textures(sdl);
+  SDL_free(sdl->buffer);
+  if (sdl->screen)
+    SDL_DestroyTexture(sdl->screen);
   if (sdl->renderer)
     SDL_DestroyRenderer(sdl->renderer);
   if (sdl->window)
@@ -97,43 +120,69 @@ void          perform_dda(t_raycaster *rc)
 
 void          calc_wall_height(t_raycaster *rc)
 {
-  int         line_height;
-
   if (rc->side == 0)
     rc->perp_wall_dist = rc->side_dist_x - rc->delta_dist_x;
   else
     rc->perp_wall_dist = rc->side_dist_y - rc->delta_dist_y;
   if (rc->perp_wall_dist < MIN_WALL_DIST)
     rc->perp_wall_dist = MIN_WALL_DIST;
-  line_height = (int)(WIN_Y / rc->perp_wall_dist);
-  rc->draw_start = -line_height / 2 + WIN_Y / 2;
+  rc->line_height = (int)(WIN_Y / rc->perp_wall_dist);
+  rc->draw_start = -rc->line_height / 2 + WIN_Y / 2;
   if (rc->draw_start < 0)
     rc->draw_start = 0;
-  rc->draw_end = line_height / 2 + WIN_Y / 2;
+  rc->draw_end = rc->line_height / 2 + WIN_Y / 2;
   if (rc->draw_end >= WIN_Y)
     rc->draw_end = WIN_Y - 1;
 }
 
+int           calc_tex_x(t_raycaster *rc)
+{
+  double      wall_x;
+  int         tex_x;
+
+  if (rc->side == 0)
+    wall_x = rc->player_pos_y + rc->perp_wall_dist * rc->ray_dir_y;
+  else
+    wall_x = rc->player_pos_x + rc->perp_wall_dist * rc->ray_dir_x;
+  wall_x -= floor(wall_x);
+  tex_x = (int)(wall_x * TEX_W);
+  if (tex_x >= TEX_W)
+    tex_x = TEX_W - 1;
+  if ((rc->side == 0 && rc->ray_dir_x > 0) || (rc->side == 1 && rc->ray_dir_y < 0))
+    tex_x = TEX_W - tex_x - 1;
+  return (tex_x);
+}
+
 void          draw_vert_line(t_sdl *sdl, t_raycaster *rc, int x)
 {
-  SDL_Color   color;
+  Uint32      *texture;
+  int         tex_x;
+  int         tex_y;
+  double      step;
+  double      tex_pos;
+  double      shade;
 
-  color = apply_night_effect(select_wall_color(rc->map_x, rc->map_y), rc->perp_wall_dist);
+  texture = sdl->textures[worldMap[rc->map_x][rc->map_y]];
+  tex_x = calc_tex_x(rc);
+  step = (double)TEX_H / rc->line_height;
+  tex_pos = (rc->draw_start - WIN_Y / 2 + rc->line_height / 2) * step;
+  shade = night_factor(rc->perp_wall_dist);
   if (rc->side == 1)
+    shade /= 2;
+  for (int y = rc->draw_start; y <= rc->draw_end; y++)
   {
-    color.r /= 2;
-    color.g /= 2;
-    color.b /= 2;
+    tex_y = (int)tex_pos & (TEX_H - 1);
+    tex_pos += step;
+    sdl->buffer[y * WIN_X + x] = shade_pixel(texture[tex_y * TEX_W + tex_x], shade);
   }
-  SDL_SetRenderDrawColor(sdl->renderer, color.r, color.g, color.b, color.a);
-  SDL_RenderLine(sdl->renderer, (float)x, (float)rc->draw_start, (float)x, (float)rc->draw_end);
 }
 
 void          render_frame(t_sdl *sdl)
 {
+  SDL_UpdateTexture(sdl->screen, NULL, sdl->buffer, WIN_X * sizeof(Uint32));
+  SDL_RenderTexture(sdl->renderer, sdl->screen, NULL, NULL);
   SDL_RenderPresent(sdl->renderer);
-  SDL_SetRenderDrawColor(sdl->renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
-  SDL_RenderClear(sdl->renderer);
+  SDL_memset(sdl->buffer, 0, WIN_X * WIN_Y * sizeof(Uint32));
 }
 
 void          try_move(t_raycaster *rc, double dx, double dy)
