@@ -17,5 +17,3 @@ This Raycaster uses the following inputs:
 - `Down` Move backward
 - `Left` Turn left
 - `Right` Turn right
-
-**WARNING:** This is a quick port not a full project, some features/error handling/optimisations are missing! 

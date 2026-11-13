@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-A small C implementation of Lode's raycasting tutorial (https://lodev.org/cgtutor/raycasting.html): untextured, flat-colored walls drawn one vertical line per screen column. The README calls it "a quick port, not a full project". Error handling and optimizations are intentionally minimal.
+A small C implementation of Lode's raycasting tutorial (https://lodev.org/cgtutor/raycasting.html): untextured, flat-colored walls drawn one vertical line per screen column.
 
 The code targets **SDL3**: it includes `<SDL3/SDL.h>` and links `-lSDL3`. It was ported from SDL2, so be careful with SDL2-era examples. In SDL3, functions return `bool` (true means success, not `0`), events are named `SDL_EVENT_*`, the key is read from `event.key.key`, and `SDL_RenderLine` takes float coordinates.
 

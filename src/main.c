@@ -30,8 +30,7 @@ int           init(t_sdl *sdl, t_raycaster *rc)
   }
   if (!SDL_SetRenderVSync(sdl->renderer, 1))
     fprintf(stderr,"VSync unavailable (%s)\n",SDL_GetError());
-  sdl->screen = SDL_CreateTexture(sdl->renderer, PIXEL_FORMAT,
-                                  SDL_TEXTUREACCESS_STREAMING, WIN_X, WIN_Y);
+  sdl->screen = SDL_CreateTexture(sdl->renderer, PIXEL_FORMAT, SDL_TEXTUREACCESS_STREAMING, WIN_X, WIN_Y);
   if (!sdl->screen)
   {
     fprintf(stderr,"Screen texture creation failed (%s)\n",SDL_GetError());
