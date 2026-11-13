@@ -24,7 +24,7 @@ all		:	$(NAME)
 $(OBJ)		:	./hds/raycaster.h
 
 $(NAME)	:	$(OBJ)
-			$(CC) -o $(NAME) $(OBJ) $(LDLIBS)
+			$(CC) $(LDFLAGS) -o $(NAME) $(OBJ) $(LDLIBS)
 
 clean	:
 			$(RM) $(OBJ)
@@ -34,4 +34,10 @@ fclean	:	clean
 
 re		:	fclean all
 
-.PHONY	:	all clean fclean re
+debug	:	CFLAGS	=	-g -O1 -W -Wall -Wextra -Werror -I./hds/	\
+				-fsanitize=address -fno-omit-frame-pointer
+debug	:	LDFLAGS	+=	-fsanitize=address
+debug	:	fclean
+			$(MAKE) CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)" $(NAME)
+
+.PHONY	:	all clean fclean re debug
